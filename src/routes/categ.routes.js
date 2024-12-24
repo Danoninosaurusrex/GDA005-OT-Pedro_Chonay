@@ -1,6 +1,3 @@
-
-
-
 import { Router } from "express";
 
 //Import de Func
