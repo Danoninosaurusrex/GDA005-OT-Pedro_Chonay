@@ -671,8 +671,8 @@ create or alter proc dbo.NewCateg
 
 as
 	begin 
-		insert into Categoria_Productos (Nombre)
-		values ( @NombreCateg);
+		insert into Categoria_Productos (Nombre, Estados)
+		values ( @NombreCateg, 1);
 	end;
 
 exec dbo.NewCateg
