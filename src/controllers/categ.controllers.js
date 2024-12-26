@@ -4,7 +4,7 @@ export const All_Categories = async (req, res) => {
     try {
         const pool = await getConection()
         const result = await pool.request()
-            .execute("dbo.All_Categoriess");
+            .execute("dbo.AllCateg");
         console.log(result);
         res.json(result.recordset);
     } catch (error) {
@@ -15,11 +15,11 @@ export const All_Categories = async (req, res) => {
 
 export const One_Category = async (req, res) => {
     try {
-        const { nombreCategoria } = req.body;
+        const { IdCategoria } = req.body;
         const pool = await getConection()
         const result = await pool.request()
-            .input('NombreCategoria', sql.VarChar, req.body.nombreCategoria)
-            .execute("dbo.CategoryByName");
+            .input('Id', sql.Int, req.body.IdCategoria)
+            .execute("dbo.OneCateg");
         console.log(result);
         res.json(result.recordset);
     } catch (error) {
@@ -30,16 +30,10 @@ export const One_Category = async (req, res) => {
 
 export const Create_Category = async (req, res) => {
     try {
-        const { nombre, categoria, marca, codigo, stock, precio, foto } = req.body;
+        const { Nombre } = req.body;
         const pool = await getConection()
         const result = await pool.request()
-            .input('Categ_Prod', sql.Int, req.body.categoria)
-            .input('name', sql.VarChar, req.body.nombre)
-            .input('Brand', sql.VarChar, req.body.marca)
-            .input('Codigo', sql.Int, req.body.codigo)
-            .input('Stock', sql.Float, req.body.stock)
-            .input('Img', sql.Binary, req.body.foto)
-            .input('Precio', sql.Float, req.body.precio)
+            .input('NombreCateg' , sql.VarChar, req.body.nombre)
             .execute("dbo.New_Categ");
 
         console.log(result);
@@ -57,20 +51,14 @@ export const Create_Category = async (req, res) => {
 
 export const Update_Category = async (req, res) => {
     try {
-        const { id, categoria, nombre, marca, codigo, stock, imagen, precio } = req.body;
+        const { IdCateg, Nombre} = req.body;
         const pool = await getConection()
         const result = await pool.request()
-            .input('IdProd', sql.Int, req.body.id)
-            .input('Categ_Prod', sql.Int, req.body.categoria)
-            .input('Name', sql.VarChar, req.body.nombre)
-            .input('Brand', sql.VarChar, req.body.marca)
-            .input('Codigo', sql.VarChar, req.body.codigo)
-            .input('Stock', sql.Float, req.body.stock)
-            .input('Img', sql.Binary, req.body.imagen)
-            .input('Precio', sql.Float, req.body.precio)
-            .execute("dbo.UpdateCategory");
+            .input('IdCateg', sql.Int, req.body.IdCateg)
+            .input('Nombre', sql.VarChar, req.body.Nombre)
+            .execute("dbo.EditCateg");
         console.log(result);
-        res.send('Actualizando una category');
+        res.send('Actualizando una categoria');
     }
     catch (error) {
         console.error(error);
@@ -83,8 +71,8 @@ export const Delete_Category = async (req, res) => {
         const { Id } = req.body;
         const pool = await getConection()
         const result = await pool.request()
-            .input('IdCategory', sql.Int, req.body.Id)
-            .execute("dbo.DeleteCategory");
+            .input('IdCateg', sql.Int, req.body.Id)
+            .execute("dbo.DeleteCateg");
         console.log(result);
 
         res.json({
@@ -94,6 +82,6 @@ export const Delete_Category = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).send('Error al eliminar el producto');
+        res.status(500).send('Error al eliminar la categoria');
     };
 };

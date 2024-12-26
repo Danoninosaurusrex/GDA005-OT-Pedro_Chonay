@@ -48,9 +48,8 @@ references Estados(Id_Estados),
 precio Float,
 F_creacion datetime 
 constraint Dt_F_create default getdate(),
-foto binary 
+foto NVARCHAR(MAX)
 );
-
 
 
 create table Clientes(
@@ -162,6 +161,29 @@ as
 	@Rol = 5,
 	@cliente = 2;
 
+--Leer
+--Todos los usuarios
+create or alter proc dbo.AllUsers
+as
+	begin 
+	select Id_Usuarios, Rol, Estados, Email, Nombre_completo, clave, Telefono, Fecha_Nacimiento from Usuarios
+end;
+
+exec dbo.AllUsers
+
+--Un usuario
+create or alter proc dbo.OneUser
+@Id int
+
+as
+	begin 
+	select Id_Usuarios, Rol, Estados, Email, 
+	Nombre_completo, clave, Telefono, Fecha_Nacimiento from Usuarios
+	where @Id = Id_Usuarios;
+	end;
+
+exec dbo.OneUser
+@Id = 1;
 
 --Editar
 create or alter proc dbo.EditUser
@@ -214,28 +236,6 @@ as
 exec dbo.DeleteUser @IdUsuario = 6;
  
 
---Leer 
-	--Todos los productos
-create or alter proc dbo.All_Products
-as begin
-	select nombre, marca, stock, codigo, precio, foto
-	from Productos;
-	end;
-
-exec All_Products;
-
-	-- Producto en especifico 
-create or alter proc dbo.ProductByName
-    @NombreProducto varchar(30)
-as
-begin
-    select nombre, marca, stock, codigo, precio, foto
-    from Productos
-    where lower(nombre) like lower('%' + @NombreProducto + '%');
-end;
-
-exec ProductByName
-@NombreProducto = "Aceite";
 
 --PROC DE TABLA PRODUCTOS
 --Crear
@@ -261,8 +261,31 @@ exec dbo.New_Produ
 @Codigo = 'P14N0', 
 @Stock = 650,  
 @Precio = 500.85,
-@Img = 10101100
+@Img = '10101100'
 ;
+
+--Leer 
+	--Todos los productos
+create or alter proc dbo.All_Products
+as begin
+	select nombre, marca, stock, codigo, precio, foto
+	from Productos;
+	end;
+
+exec All_Products;
+
+	-- Producto en especifico 
+create or alter proc dbo.ProductByName
+    @NombreProducto varchar(30)
+as
+begin
+    select nombre, marca, stock, codigo, precio, foto
+    from Productos
+    where lower(nombre) like lower('%' + @NombreProducto + '%');
+end;
+
+exec ProductByName
+@NombreProducto = "Aceite";
 
 --Editar
 create or alter proc dbo.Edit_Produ
@@ -314,94 +337,98 @@ as
 exec dbo.DeleteProduct @IdProducto = 6;
 
 
---PROC DE TABLA ORDEN-DETALLES
+--PROC DE TABLA ORDEN-DETALLESORDEN
 --Crear
-create or alter  proc dbo.NewOrder_Detalles
-@Orden int ,
-@IdProducto int,
-@Cantidad int
+CREATE OR ALTER PROCEDURE dbo.New_OrderD
+    @Usuario INT,
+    @N_completo VARCHAR(50),
+    @Direccion VARCHAR(50),
+    @Telefono VARCHAR(15),
+    @Email VARCHAR(40),
+    @F_Entrega DATE,
+    @DetallesOrden NVARCHAR(MAX) 
+as
+begin
+    begin transaction;
 
-as 
-	begin
-		declare @Producto varchar (40),
-				@Precio float,
-				@subtotal float;
-			select @Producto = nombre, @Precio = precio
-			from Productos 
-			where Id_Productos = @IdProducto; 
-			set @subtotal =  @Precio * @Cantidad ;
-		begin
-			insert into Orden_Detalles (Orden, Productos, Cantidad, Precio, Subtotal)
-			values (@Orden, @IdProducto, @Cantidad, @Precio, @subtotal)
-		end 
-			
-	end;
+    begin try
+        declare @Subtotal_O FLOAT,
+                @Total_O FLOAT,
+                @Comision FLOAT,
+                @Id_Orden INT;
 
-exec NewOrder_Detalles
-@Orden = 5 ,
-@IdProducto = 4,
-@Cantidad = 5 ;
+        insert into Orden (Usuarios, Estados, Nombre_Completo, Direccion, Telefono, Email, Fecha_Entrega, Total_Orden)
+        values (@Usuario, 1, @N_completo, @Direccion, @Telefono, @Email, @F_Entrega, 0);
 
+        set @Id_Orden = SCOPE_IDENTITY();
 
+        insert into Orden_Detalles (Orden, Productos, Cantidad, Precio, Subtotal)
+        select 
+            @Id_Orden, 
+            od.Productos, 
+            od.Cantidad, 
+            p.precio, 
+            od.Cantidad * p.precio as Subtotal
+        from 
+            OPENJSON(@DetallesOrden)
+            WITH (
+                Productos INT,
+                Cantidad INT
+            ) AS od
+        JOIN 
+            Productos p ON od.Productos = p.Id_Productos;
 
---Editar
-create or alter  proc dbo.EditOrder_Detalles
-@Id_Detalles int,
-@Orden int null,
-@IdProducto int null,
-@Cantidad int null
+        SELECT @Subtotal_O = SUM(Subtotal) FROM Orden_Detalles
+        WHERE Orden = @Id_Orden;
 
+        SET @Comision = @Subtotal_O * 0.10;
+        SET @Total_O = @Comision + @Subtotal_O;
+
+        UPDATE Orden
+        SET Total_Orden = @Total_O
+        WHERE Id_Orden = @Id_Orden;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+
+exec dbo.New_OrderD
+    @Usuario = 123, 
+    @N_completo = 'Juan Pérez', 
+    @Direccion = 'Calle Falsa 123', 
+    @Telefono = '555-1234', 
+    @Email = 'juan.perez@example.com', 
+    @F_Entrega = '2024-12-31', 
+    @DetallesOrden = '[{"Productos":1,"Cantidad":2},{"Productos":2,"Cantidad":3}]';
+
+	--Leer
+---Leer todas las ordenes
+create or alter proc dbo.AllOrders
 as
 	begin 
-		declare @Producto varchar (40),
-				@Precio float,
-				@subtotal float;
-			select @Producto = nombre, @Precio = precio
-			from Productos
-			where Id_Productos = @IdProducto; 
-			set @subtotal =  @Precio * @Cantidad ;
-		begin update Orden_Detalles 
-			set 
-			Orden = coalesce (@Orden , Orden), 
-			Productos = coalesce (@IdProducto , Productos), 
-			Cantidad = coalesce (@Cantidad , Cantidad), 
-			Precio = coalesce (@Precio , Precio), 
-			Subtotal  = coalesce (@subtotal , Subtotal)
-		where @Id_Detalles = Id_Orden_Detalles;
-		end
+	select * from Orden
 	end;
 
-exec dbo.EditOrder_Detalles
-@Id_Detalles = 11,
-@Orden = null,
-@IdProducto = 5,
-@Cantidad = 2;
+exec dbo.AllOrders;
 
---Eliminar
-create or alter proc dbo.DeleteOrdenDetalles
-@IdOrdenDetalles int 
-
+--Leer una orden
+create or alter proc dbo.OneOrder
+@IdOrder int
 as
-	declare @Orden int;
-	select @Orden = Orden from Orden_Detalles 
-	where @IdOrdenDetalles = Id_Orden_Detalles;
-		begin transaction;
-			update Orden set Orden_Num =  null 
-			where Orden_Num = @Orden;
-			delete from Orden_Detalles 
-			where @IdOrdenDetalles = Id_Orden_Detalles;
-		commit transaction;
- 
- exec dbo.DeleteOrdenDetalles @IdordenDetalles = 13; 
+	begin
+	select * from Orden where @IdOrder = Id_Orden;
+	end;
 
-
-
-
+exec dbo.OneOrder
+@IdOrder = 3;
 
 --Editar
 create or alter proc dbo.Edit_Order
 @IdOrden int, 
-@Num_O int null,
 @Usuario int null,
 @N_completo varchar (50) null,
 @Direccion varchar (50) null,
@@ -416,12 +443,11 @@ as
 			Direccion = coalesce (@Direccion , Direccion), 
 			Telefono = coalesce (@Telefono , Telefono), 
 			Email = coalesce (@Email , Email), 
-			Fecha_Entrega = coalesce (@F_Entrega , Fecha_Entrega), 
-			Orden_Num = coalesce (@Num_O , Orden_Num)
+			Fecha_Entrega = coalesce (@F_Entrega , Fecha_Entrega)
 		where @IdOrden = Id_Orden;
 	end;
 
-	exec dbo.Edit_Order
+exec dbo.Edit_Order
 	@IdOrden = 9,
 	@Num_O = null,
 	@Usuario = null, 
@@ -443,9 +469,6 @@ as
 	end;
 
 exec dbo.DeleteOrder @IdOrder = 11 ;
-
-
-
 
 --PROC DE TABLA ESTADOS
 --Crear
@@ -654,6 +677,27 @@ as
 
 exec dbo.NewCateg
 @NombreCateg = 'Viento plastico';
+
+--Leer
+	--Todas las categorias
+create or alter proc dbo.AllCateg
+as
+	begin 
+	select * from Categoria_Productos;
+	end;
+
+exec dbo.AllCateg
+
+	--Una Categoria
+create or alter proc dbo.OneCateg
+@Id int
+as
+	begin 
+	select * from Categoria_Productos where Id_Categoria = @Id;
+	end;
+
+exec dbo.OneCateg
+@Id = 3;
 
 --Editar
 create or alter proc dbo.EditCateg
